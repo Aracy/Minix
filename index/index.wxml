@@ -1,0 +1,2 @@
+<view class="intro">num:{{state.num}}</view>
+<view class='intro'>text:{{state.text}}</view>

@@ -1,0 +1,24 @@
+{
+    "name": "wx-minix",
+    "version": "0.0.1",
+    "description": "Miniprogram state Manager",
+    "main": "component/index.js",
+    "scripts": {},
+    "author": "valarsun",
+    "license": "ISC",
+    "miniprogram": "component",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Aracy/Minix.git"
+    },
+    "keywords": [
+        "wechat-mini-program",
+        "state"
+    ],
+    "bugs": {
+        "url": "https://github.com/Aracy/Minix/issues"
+    },
+    "files": [
+        "component"
+    ]
+}

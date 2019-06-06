@@ -1,0 +1,4 @@
+.intro {
+  margin: 30rpx;
+  text-align: center;
+}
