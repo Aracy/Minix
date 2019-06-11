@@ -63,14 +63,7 @@ const storeCore = {
                 config.states.push(value)
             }
         }
-        if (config.states.length <= 0) {
-            return
-        }
-        config.data = config.data ? config.data : {}
-        config.data.state = {}
-        for (var attr of config.states) {
-            config.data.state[attr] = this.state[attr]
-        }
+
     },
 
     /**
@@ -85,6 +78,7 @@ const storeCore = {
         }
         const index = this.getRegisterIndex();
         this.pageMap.set(index, context)
+        let changeData;
         for (var attr of state) {
             let indexArray = this.stateMap.get(attr)
             if (!indexArray) {
@@ -95,6 +89,15 @@ const storeCore = {
             if (this.state[attr] == undefined) {
                 continue
             }
+            if (!changeData) {
+                changeData = {
+                    state: {}
+                };
+            }
+            changeData.state[attr] = this.state[attr]
+        }
+        if (changeData) {
+            context.setData(changeData)
         }
         return index
     },
@@ -129,13 +132,13 @@ App = function(config) {
     } = config
 
     config.onLaunch = function(options) {
-        if (typeof onLaunch === 'function') {
-            onLaunch.call(this, options)
-        }
         if (!this.store) {
             return;
         }
         this.store = Object.assign(this.store, storeCore)
+        if (onLaunch && typeof onLaunch === 'function') {
+            onLaunch.call(this, options)
+        }
     }
     return originalApp(config)
 }
@@ -152,13 +155,13 @@ Page = function(config) {
     getApp().store.initStateData(config)
 
     config.onLoad = function(options) {
-        if (typeof onLoad === 'function') {
-            onLoad.call(this, options)
-        }
         if (!getApp().store || !this.states || this.states.length == 0) {
             return;
         }
         this.$StoreIndex = getApp().store.register(this, this.states)
+        if (onLoad && typeof onLoad === 'function') {
+            onLoad.call(this, options)
+        }
     }
 
 
@@ -189,13 +192,13 @@ Component = function(config) {
     getApp().store.initStateData(config)
 
     lifetimes.attached = function() {
-        if (typeof attached === 'function') {
-            attached.call(this)
-        }
         if (!getApp().store || !config.states || config.states.length == 0) {
             return;
         }
         this.$StoreIndex = getApp().store.register(this, config.states)
+        if (typeof attached === 'function') {
+            attached.call(this)
+        }
     }
 
     lifetimes.detached = function() {
