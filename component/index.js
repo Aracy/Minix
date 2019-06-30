@@ -57,7 +57,6 @@ const storeCore = {
                     continue
                 }
                 if (dis && config.disableStates.indexOf(value) != -1) {
-                    console.log(2)
                     continue
                 }
                 config.states.push(value)
@@ -111,6 +110,7 @@ const storeCore = {
         if (!state || state.length == 0) {
             return;
         }
+        this.pageMap.get(index).$StoreIndex = undefined
         this.pageMap.delete(index)
         for (var attr of state) {
             const indexArray = this.stateMap.get(attr)
@@ -149,30 +149,33 @@ const originalPage = Page
 Page = function(config) {
     const {
         onLoad,
-        onUnload
+        onShow,
+        onHide,
+        onUnload,
     } = config;
 
     getApp().store.initStateData(config)
 
     config.onLoad = function(options) {
-        if (!getApp().store || !this.states || this.states.length == 0) {
-            return;
+        if (!this.$StoreIndex && getApp().store && this.states && this.states.length != 0) {
+            this.$StoreIndex = getApp().store.register(this, this.states)
         }
-        this.$StoreIndex = getApp().store.register(this, this.states)
-        if (onLoad && typeof onLoad === 'function') {
-            onLoad.call(this, options)
-        }
+        onLoad && typeof onLoad === 'function' && onLoad.call(this, options)
     }
 
+    config.onShow = function() {
+        if (!this.$StoreIndex && getApp().store && this.states && this.states.length != 0) {
+            this.$StoreIndex = getApp().store.register(this, this.states)
+        }
+        onShow && typeof onShow === 'function' && onShow.call(this)
 
-    config.onUnload = function() {
-        if (typeof onUnload === 'function') {
-            onUnload.call(this)
+    }
+
+    config.onHide = function() {
+        onHide && typeof onHide === 'function' && onHide.call(this)
+        if (this.$StoreIndex && getApp().store && this.states && this.states.length != 0) {
+            getApp().store.unregister(this.$StoreIndex, this.states)
         }
-        if (!this.$StoreIndex || !getApp().store || !this.states || this.states.length == 0) {
-            return;
-        }
-        getApp().store.unregister(this.$StoreIndex, this.states)
     }
 
     return originalPage(config)
@@ -189,26 +192,41 @@ Component = function(config) {
         detached
     } = lifetimes
 
+    const pageLifetimes = config.pageLifetimes || {}
+
+    const {
+        show,
+        hide
+    } = pageLifetimes
+
     getApp().store.initStateData(config)
 
     lifetimes.attached = function() {
-        if (!getApp().store || !config.states || config.states.length == 0) {
-            return;
+        if (!this.$StoreIndex && getApp().store && config.states && config.states.length != 0) {
+            this.$StoreIndex = getApp().store.register(this, config.states)
         }
-        this.$StoreIndex = getApp().store.register(this, config.states)
-        if (typeof attached === 'function') {
-            attached.call(this)
-        }
+        attached && typeof attached === 'function' && attached.call(this)
     }
 
     lifetimes.detached = function() {
-        if (typeof detached === 'function') {
-            detached.call(this)
+        detached && typeof detached === 'function' && detached.call(this)
+        if (this.$StoreIndex && getApp().store) {
+            getApp().store.unregister(this.$StoreIndex, config.states)
         }
-        if (!this.$StoreIndex || !getApp().store || !config.states || config.states.length == 0) {
-            return;
+    }
+
+    pageLifetimes.show = function() {
+        if (!this.$StoreIndex && getApp().store && config.states && config.states.length != 0) {
+            this.$StoreIndex = getApp().store.register(this, config.states)
         }
-        getApp().store.unregister(this.$StoreIndex, config.states)
+        show && typeof show === 'function' && show.call(this)
+    }
+
+    pageLifetimes.hide = function() {
+        hide && typeof hide === 'function' && hide.call(this)
+        if (this.$StoreIndex && getApp().store) {
+            getApp().store.unregister(this.$StoreIndex, config.states)
+        }
     }
 
     return originalComponent(config)
