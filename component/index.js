@@ -3,6 +3,7 @@ const storeCore = {
 
     stateMap: new Map(),
     pageMap: new Map(),
+    partData: false,
 
     /**
      * 注册计数器
@@ -25,6 +26,16 @@ const storeCore = {
             return
         }
         this.state[attr] = value
+        //全部显示
+        if (!this.partData) {
+            this.pageMap.forEach(context => {
+                context.setData({
+                    [`$State.${attr}`]: value
+                })
+            })
+            return;
+        }
+        //部分显示，查找对应的context
         const indexArray = this.stateMap.get(attr)
         if (!indexArray || indexArray.length == 0) {
             return;
@@ -35,7 +46,7 @@ const storeCore = {
                 continue
             }
             context.setData({
-                [`state.${attr}`]: value
+                [`$State.${attr}`]: value
             })
         }
     },
@@ -46,7 +57,7 @@ const storeCore = {
      * @param config
      */
     initStateData(config) {
-        if (!config || (!config.states && !this.states)) {
+        if (!this.partData || !config || (!config.states && !this.states)) {
             return;
         }
         config.states = config.states ? config.states : []
@@ -72,11 +83,18 @@ const storeCore = {
      * @param state 要监控的状态属性名列表
      */
     register: function(context, state) {
-        if (!context || !state || state.length == 0) {
+        if (!context || (this.partData && (!state || state.length == 0))) {
             return;
         }
         const index = this.getRegisterIndex();
         this.pageMap.set(index, context)
+        if (!this.partData) {
+            context.setData({
+                $State: this.state
+            })
+            return index
+        }
+        //对部分属性进行注册
         let changeData;
         for (var attr of state) {
             let indexArray = this.stateMap.get(attr)
@@ -90,10 +108,10 @@ const storeCore = {
             }
             if (!changeData) {
                 changeData = {
-                    state: {}
+                    $State: {}
                 };
             }
-            changeData.state[attr] = this.state[attr]
+            changeData.$State[attr] = this.state[attr]
         }
         if (changeData) {
             context.setData(changeData)
@@ -107,11 +125,14 @@ const storeCore = {
      * @param state 注销的状态列表
      */
     unregister: function(index, state) {
-        if (!state || state.length == 0) {
-            return;
+        if (!index) {
+            return
         }
         this.pageMap.get(index).$StoreIndex = undefined
         this.pageMap.delete(index)
+        if (!state || state.length == 0) {
+            return;
+        }
         for (var attr of state) {
             const indexArray = this.stateMap.get(attr)
             const index = indexArray.indexOf(index)
@@ -132,10 +153,7 @@ App = function(config) {
     } = config
 
     config.onLaunch = function(options) {
-        if (!this.store) {
-            return;
-        }
-        this.store = Object.assign(this.store, storeCore)
+        this.store = Object.assign(storeCore, this.store || {})
         if (onLaunch && typeof onLaunch === 'function') {
             onLaunch.call(this, options)
         }
@@ -157,23 +175,22 @@ Page = function(config) {
     getApp().store.initStateData(config)
 
     config.onLoad = function(options) {
-        if (!this.$StoreIndex && getApp().store && this.states && this.states.length != 0) {
+        if (!this.$StoreIndex && (!getApp().store.partData || (this.states && this.states.length != 0))) {
             this.$StoreIndex = getApp().store.register(this, this.states)
         }
         onLoad && typeof onLoad === 'function' && onLoad.call(this, options)
     }
 
     config.onShow = function() {
-        if (!this.$StoreIndex && getApp().store && this.states && this.states.length != 0) {
+        if (!this.$StoreIndex && (!getApp().store.partData || (this.states && this.states.length != 0))) {
             this.$StoreIndex = getApp().store.register(this, this.states)
         }
         onShow && typeof onShow === 'function' && onShow.call(this)
-
     }
 
     config.onHide = function() {
         onHide && typeof onHide === 'function' && onHide.call(this)
-        if (this.$StoreIndex && getApp().store && this.states && this.states.length != 0) {
+        if (this.$StoreIndex) {
             getApp().store.unregister(this.$StoreIndex, this.states)
         }
     }
@@ -202,7 +219,7 @@ Component = function(config) {
     getApp().store.initStateData(config)
 
     lifetimes.attached = function() {
-        if (!this.$StoreIndex && getApp().store && config.states && config.states.length != 0) {
+        if (!this.$StoreIndex && (!getApp().store.partData || (config.states && config.states.length != 0))) {
             this.$StoreIndex = getApp().store.register(this, config.states)
         }
         attached && typeof attached === 'function' && attached.call(this)
@@ -210,13 +227,13 @@ Component = function(config) {
 
     lifetimes.detached = function() {
         detached && typeof detached === 'function' && detached.call(this)
-        if (this.$StoreIndex && getApp().store) {
+        if (this.$StoreIndex) {
             getApp().store.unregister(this.$StoreIndex, config.states)
         }
     }
 
     pageLifetimes.show = function() {
-        if (!this.$StoreIndex && getApp().store && config.states && config.states.length != 0) {
+        if (!this.$StoreIndex && (!getApp().store.partData || (config.states && config.states.length != 0))) {
             this.$StoreIndex = getApp().store.register(this, config.states)
         }
         show && typeof show === 'function' && show.call(this)
@@ -224,7 +241,7 @@ Component = function(config) {
 
     pageLifetimes.hide = function() {
         hide && typeof hide === 'function' && hide.call(this)
-        if (this.$StoreIndex && getApp().store) {
+        if (this.$StoreIndex) {
             getApp().store.unregister(this.$StoreIndex, config.states)
         }
     }
